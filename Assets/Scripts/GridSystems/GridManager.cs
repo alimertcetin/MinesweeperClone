@@ -159,10 +159,23 @@ namespace GridSystems
             var celldata = cellDatas[index];
             if (celldata.hasMine)
             {
-                // GameOver
+                Debug.LogWarning("Game Over");
+                return;
             }
             
             ExploreCell(index);
+            int exploredCount = 0;
+            for (int i = 0; i < cellDatas.Length; i++)
+            {
+                if (cellDatas[i].hasMine || cellDatas[i].explored == false) continue;
+                exploredCount++;
+            }
+
+            var left = cellDatas.Length - mineIndices.Length - exploredCount;
+            if (left == 0)
+            {
+                Debug.LogWarning("You Win");
+            }
         }
 
         void IPointerUpHandler.OnPointerUp(PointerEventData eventData)

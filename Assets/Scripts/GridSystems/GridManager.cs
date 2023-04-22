@@ -49,6 +49,7 @@ namespace GridSystems
                     int index = x * gridSize.y + y;
                     cellGameObjects[index] = cell;
                     cellDatas[index] = new CellData();
+                    cell.GetComponentInChildren<TMP_Text>().enabled = false;
                 }
             }
 
@@ -117,11 +118,51 @@ namespace GridSystems
             return neighborIndices;
         }
 
+        void ExploreCell(int cellIndex)
+        {
+            ref var celldata = ref cellDatas[cellIndex];
+            if (celldata.explored) return;
+            celldata.explored = true;
+            cellGameObjects[cellIndex].GetComponent<Renderer>().material.color = Color.blue;
+            
+            var txt = cellGameObjects[cellIndex].GetComponentInChildren<TMP_Text>();
+            txt.enabled = true;
+            txt.text = celldata.mineNeigbourCount.ToString();
+            txt.color = Color.Lerp(Color.green, Color.blue, cellDatas[cellIndex].mineNeigbourCount / 8f);
+
+            if (cached != null)
+            {
+                cachedColor = Color.blue;
+            }
+            
+            if (celldata.mineNeigbourCount > 0) return;
+            
+            var worldPos = cellGameObjects[cellIndex].transform.position;
+            var neighboringIndices = GetNeighboringIndices(worldPos);
+            for (int i = 0; i < neighboringIndices.Count; i++)
+            {
+                var neighbourIndex = neighboringIndices[i];
+                ref var neighbourCellData = ref cellDatas[neighbourIndex];
+                if (neighbourCellData.hasMine == false && neighbourCellData.explored == false)
+                {
+                    ExploreCell(neighbourIndex);
+                }
+            }
+        }
+
         GameObject cached;
         Color cachedColor;
         void IPointerDownHandler.OnPointerDown(PointerEventData eventData)
         {
+            var worldPos = Camera.main.ScreenToWorldPoint(eventData.position);
+            int index = GetIndexByWorldPos(worldPos);
+            var celldata = cellDatas[index];
+            if (celldata.hasMine)
+            {
+                // GameOver
+            }
             
+            ExploreCell(index);
         }
 
         void IPointerUpHandler.OnPointerUp(PointerEventData eventData)
@@ -200,9 +241,6 @@ namespace GridSystems
                 {
                     var neighbourIndex = neighbours[j];
                     cellDatas[neighbourIndex].mineNeigbourCount++;
-                    var txt = cellGameObjects[neighbourIndex].GetComponentInChildren<TMP_Text>();
-                    txt.text = cellDatas[neighbourIndex].mineNeigbourCount.ToString();
-                    txt.color = Color.Lerp(Color.green, Color.blue, cellDatas[neighbourIndex].mineNeigbourCount / 8f);
                 }
             }
         }

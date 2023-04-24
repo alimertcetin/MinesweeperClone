@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
+using UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using XIV;
@@ -268,7 +269,7 @@ namespace GridSystems
                 materialChanger.materials = mineClickedMaterials;
                 yield return new WaitForSeconds(materialChangeDuration * 0.5f);
             }
-            Debug.LogWarning("Game Over");
+            FindObjectOfType<GameOverUI>().ShowUI();
         }
 
         void IPointerDownHandler.OnPointerDown(PointerEventData eventData)
@@ -307,7 +308,7 @@ namespace GridSystems
             var left = cellDatas.Length - mineIndices.Length - exploredCount;
             if (left == 0)
             {
-                Debug.LogWarning("You Win");
+                FindObjectOfType<GameOverUI>().ShowUI();
             }
         }
 

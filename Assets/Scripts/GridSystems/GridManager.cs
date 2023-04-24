@@ -144,7 +144,6 @@ namespace GridSystems
             {
                 int index = mineIndices[i];
                 var cell = cellGameObjects[index];
-                cell.GetComponent<Renderer>().material.color = Color.red;
                 cellDatas[index].hasMine = true;
                 var neighbours = GetNeighboringIndices(cell.transform.position);
                 for (int j = 0; j < neighbours.Count; j++)

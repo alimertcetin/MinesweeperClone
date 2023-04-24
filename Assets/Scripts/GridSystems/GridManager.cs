@@ -27,6 +27,10 @@ namespace GridSystems
         [SerializeField] Material[] mineClickedMaterials;
         [SerializeField] Material[] emptyFieldMaterials;
         [SerializeField] float materialChangeDuration = 0.75f;
+        [SerializeField] AudioClip selectionChangedClip;
+        [SerializeField] AudioClip selectionClickedClip;
+
+        AudioSource audioSource;
         
         GameObject[] cellGameObjects;
         CellData[] cellDatas;
@@ -45,6 +49,7 @@ namespace GridSystems
         void Awake()
         {
             CreateCells();
+            audioSource = new GameObject("GridManager-AudioSource").AddComponent<AudioSource>();
         }
 
         [ContextMenu(nameof(CreateCells))]
@@ -268,6 +273,7 @@ namespace GridSystems
 
         void IPointerDownHandler.OnPointerDown(PointerEventData eventData)
         {
+            audioSource.PlayOneShot(selectionClickedClip);
         }
 
         void IPointerUpHandler.OnPointerUp(PointerEventData eventData)
@@ -320,8 +326,10 @@ namespace GridSystems
             var worldPos = Camera.main.ScreenToWorldPoint(eventData.position);
             int index = GetIndexByWorldPos(worldPos);
 
+            if (acitveCell == index) return;
             ResetActiveCell();
             acitveCell = index;
+            audioSource.PlayOneShot(selectionChangedClip);
             var currentRenderer = cellGameObjects[acitveCell].GetComponent<Renderer>();
             previousMaterial = currentRenderer.material;
             currentRenderer.material = emptyFieldMaterials[0];

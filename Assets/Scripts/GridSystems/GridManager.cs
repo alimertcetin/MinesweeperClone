@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.UI;
+using XIV;
 
 namespace GridSystems
 {
@@ -23,123 +23,128 @@ namespace GridSystems
         [SerializeField] int mineCount;
         [SerializeField] float cellPadding;
         [SerializeField] GameObject cellPrefab;
-        [SerializeField] GameObject[] cellGameObjects;
+        GameObject[] cellGameObjects;
         CellData[] cellDatas;
         int[] mineIndices;
-        Vector2Int cachedGridSize;
-        Vector2 cachedAreaSize;
-        float cachedPadding;
+        GameObject acitveCell;
+        Vector3 CellSize => new Vector3(areaSize.x / cellCount.x, areaSize.y / cellCount.y, 0f);
+
+#if UNITY_EDITOR
         public bool enableGizmos;
-        
-        #if UNITY_EDITOR
-        void OnDrawGizmos()
-        {
-            if (enableGizmos == false) return;
-            DrawBox(transform.position, areaSize * 0.5f);
-            
-            var cellSize = new Vector3(areaSize.x / cellCount.x, areaSize.y / cellCount.y, 0f);
-            var start = transform.position - (Vector3)(areaSize * 0.5f) + (cellSize * 0.5f);
-            
-            for (int x = 0; x < cellCount.x; x++)
-            {
-                for (int y = 0; y < cellCount.y; y++)
-                {
-                    var pos = start + new Vector3(cellSize.x * x, cellSize.y * y, 0f);
-                    DrawBox(pos, cellSize * 0.5f, 10);
-                }
-            }
-        }
-        #endif
+        Vector2 cachedAreaSize;
+#endif
 
         void Awake()
         {
-            int length = cellCount.y * cellCount.x;
-            cellGameObjects = new GameObject[length];
-            cellDatas = new CellData[length];
+            CreateCells();
         }
 
-        void Init()
+        [ContextMenu(nameof(CreateCells))]
+        void CreateCells()
         {
+            ClearCells();
+
             int length = cellCount.y * cellCount.x;
             if (length < 0) return;
+            cellGameObjects = new GameObject[length];
+            cellDatas = new CellData[length];
             if (length != cellGameObjects.Length)
             {
                 Array.Resize(ref cellGameObjects, length);
                 Array.Resize(ref cellDatas, length);
             }
             
-            var cellSize = new Vector3(areaSize.x / cellCount.x, areaSize.y / cellCount.y, 0f);
-            var start = transform.position - (Vector3)(areaSize * 0.5f) + (cellSize * 0.5f);
+            var start = transform.position - (Vector3)(areaSize * 0.5f) + (CellSize * 0.5f);
             
             for (int x = 0; x < cellCount.x; x++)
             {
                 for (int y = 0; y < cellCount.y; y++)
                 {
-                    var pos = start + new Vector3(cellSize.x * x, cellSize.y * y, 0f);
-                    var cell = CreateCell(x, y, pos, cellSize);
+                    var pos = start + new Vector3(CellSize.x * x, CellSize.y * y, 0f);
+                    var cell = CreateCell(x, y, pos, CellSize);
                     
                     int index = x * cellCount.y + y;
                     cellGameObjects[index] = cell;
                 }
             }
-
-            SetCollSize();
+            
+            var coll = GetComponent<BoxCollider>();
+            coll.size = new Vector3(areaSize.x, areaSize.y, coll.size.z);
             PlaceMines();
+
+#if UNITY_EDITOR
+            cachedAreaSize = areaSize;
+#endif
         }
 
-        void Update()
+        [ContextMenu(nameof(ClearCells))]
+        void ClearCells()
         {
-            if (cachedGridSize != cellCount || cachedAreaSize != areaSize || Math.Abs(cachedPadding - cellPadding) > 0.01f)
+            if (cellGameObjects != null && cellGameObjects.Length > 0)
             {
                 for (int i = 0; i < cellGameObjects.Length; i++)
                 {
-                    Destroy(cellGameObjects[i]);
+                    if (Application.isPlaying) Destroy(cellGameObjects[i]);
+                    else DestroyImmediate(cellGameObjects[i]);
                 }
 
-                Init();
-                cachedGridSize = cellCount;
-                cachedAreaSize = areaSize;
-                cachedPadding = cellPadding;
+                Array.Clear(cellGameObjects, 0, cellGameObjects.Length);
+            }
+
+            for (int i = 0; i < transform.childCount; i++)
+            {
+                if (Application.isPlaying) Destroy(transform.GetChild(i));
+                else DestroyImmediate(transform.GetChild(i).gameObject);
             }
         }
 
-        int GetIndexByWorldPos(Vector3 worldPos)
+#if UNITY_EDITOR
+        void Update()
         {
-            var cellSize = new Vector3(areaSize.x / cellCount.x, areaSize.y / cellCount.y, 0f) - (Vector3.one * cellPadding);
-            var localPos = transform.InverseTransformPoint(worldPos);
-            var xLength = areaSize.x;
-            var yLength = areaSize.y;
+            if (cachedAreaSize != areaSize)
+            {
+                ResizeCells();
+                cachedAreaSize = areaSize;
+            }
+        }
+#endif
+        
+        void ResizeCells()
+        {
+            var start = transform.position - (Vector3)(areaSize * 0.5f) + (CellSize * 0.5f);
 
-            float normalizedX = (localPos.x + xLength / 2f - cellSize.x * 0.5f) / xLength;
-            float normalizedY = (localPos.y + yLength / 2f - cellSize.y * 0.5f) / yLength;
-            normalizedX = Mathf.Clamp(normalizedX, 0, normalizedX);
-            normalizedY = Mathf.Clamp(normalizedY, 0, normalizedY);
-            Debug.Log(nameof(normalizedX) + " : " + normalizedX);
-            Debug.Log(nameof(normalizedY) + " : " + normalizedY);
-
-            int x = (int)Math.Round(cellCount.x * normalizedX);
-            int y = (int)Math.Round(cellCount.y * normalizedY); 
-            int index = x * cellCount.y + y;
-            index = Mathf.Clamp(index, 0, cellGameObjects.Length - 1);
-            return index;
+            for (int x = 0; x < cellCount.x; x++)
+            {
+                for (int y = 0; y < cellCount.y; y++)
+                {
+                    int index = x * cellCount.y + y;
+                    var pos = start + new Vector3(CellSize.x * x, CellSize.y * y, 0f);
+                    var cell = cellGameObjects[index];
+                    cell.transform.position = pos;
+                    var size3D = CellSize - (Vector3.one * cellPadding);
+                    size3D.z = cell.transform.localScale.z;
+                    cell.transform.localScale = size3D;
+                }
+            }
         }
 
-        void SetCollSize()
+        void PlaceMines()
         {
-            var coll = GetComponent<BoxCollider>();
-            coll.size = new Vector3(areaSize.x, areaSize.y, coll.size.z);
-        }
+            mineIndices = GetDenseArr(cellCount.x, cellCount.y, mineCount);
 
-        static void DrawBox(Vector3 pos, Vector3 halfExtend, float duration = 0)
-        {
-            var bottomLeft = pos - halfExtend;
-            var topRight = pos + halfExtend;
-            Debug.DrawLine(bottomLeft, topRight, Color.black, 5f);
-                    
-            Debug.DrawLine(bottomLeft, new Vector3(topRight.x, bottomLeft.y), Color.red, duration);
-            Debug.DrawLine(new Vector3(topRight.x, bottomLeft.y), topRight, Color.green, duration);
-            Debug.DrawLine(topRight, new Vector3(bottomLeft.x, topRight.y), Color.red, duration);
-            Debug.DrawLine(new Vector3(bottomLeft.x, topRight.y), bottomLeft, Color.green, duration);
+            for (int i = 0; i < mineIndices.Length; i++)
+            {
+                int index = mineIndices[i];
+                var cell = cellGameObjects[index];
+                cell.GetComponent<Renderer>().material.color = Color.red;
+                cellDatas[index].hasMine = true;
+                var neighbours = GetNeighboringIndices(cell.transform.position);
+                for (int j = 0; j < neighbours.Count; j++)
+                {
+                    var neighbourIndex = neighbours[j];
+                    cellDatas[neighbourIndex].mineNeigbourCount++;
+                }
+            }
         }
 
         GameObject CreateCell(int x, int y, Vector3 pos, Vector3 cellSize)
@@ -153,6 +158,25 @@ namespace GridSystems
             
             cell.GetComponentInChildren<TMP_Text>().enabled = false;
             return cell;
+        }
+
+        int GetIndexByWorldPos(Vector3 worldPos)
+        {
+            var cellSize = CellSize - (Vector3.one * cellPadding);
+            var localPos = transform.InverseTransformPoint(worldPos);
+            var xLength = areaSize.x;
+            var yLength = areaSize.y;
+
+            float normalizedX = (localPos.x + xLength / 2f - cellSize.x * 0.5f) / xLength;
+            float normalizedY = (localPos.y + yLength / 2f - cellSize.y * 0.5f) / yLength;
+            normalizedX = Mathf.Clamp(normalizedX, 0, normalizedX);
+            normalizedY = Mathf.Clamp(normalizedY, 0, normalizedY);
+
+            int x = (int)Math.Round(cellCount.x * normalizedX);
+            int y = (int)Math.Round(cellCount.y * normalizedY); 
+            int index = x * cellCount.y + y;
+            index = Mathf.Clamp(index, 0, cellGameObjects.Length - 1);
+            return index;
         }
         
         List<int> GetNeighboringIndices(Vector3 worldPos)
@@ -193,11 +217,6 @@ namespace GridSystems
             txt.enabled = true;
             txt.text = celldata.mineNeigbourCount.ToString();
             txt.color = Color.Lerp(Color.green, Color.blue, cellDatas[cellIndex].mineNeigbourCount / 8f);
-
-            if (cached != null)
-            {
-                cachedColor = Color.blue;
-            }
             
             if (celldata.mineNeigbourCount > 0) return;
             
@@ -214,8 +233,6 @@ namespace GridSystems
             }
         }
 
-        GameObject cached;
-        Color cachedColor;
         void IPointerDownHandler.OnPointerDown(PointerEventData eventData)
         {
             var worldPos = Camera.main.ScreenToWorldPoint(eventData.position);
@@ -251,13 +268,10 @@ namespace GridSystems
         {
             var worldPos = Camera.main.ScreenToWorldPoint(eventData.position);
             int index = GetIndexByWorldPos(worldPos);
-            
-            var go = cellGameObjects[index];
-            if (cached != null) cached.GetComponent<Renderer>().material.color = cachedColor;
-            var material = go.GetComponent<Renderer>().material;
-            cached = go;
-            cachedColor = material.color;
-            material.color = Color.green;
+            acitveCell = cellGameObjects[index];
+#if UNITY_EDITOR
+            XIVDebug.DrawBox(acitveCell.transform.position, CellSize * 0.5f, 0.25f);
+#endif
         }
         
         static int[] GetDenseArr(int xSize, int ySize, int desiredTrueCellCount)
@@ -302,24 +316,25 @@ namespace GridSystems
 
             return Array.FindAll(result, (val) => val > 0);
         }
-
-        void PlaceMines()
+        
+#if UNITY_EDITOR
+        void OnDrawGizmos()
         {
-            mineIndices = GetDenseArr(cellCount.x, cellCount.y, mineCount);
-
-            for (int i = 0; i < mineIndices.Length; i++)
+            if (enableGizmos == false) return;
+            XIVDebug.DrawBox(transform.position, areaSize * 0.5f);
+            
+            var start = transform.position - (Vector3)(areaSize * 0.5f) + (CellSize * 0.5f);
+            
+            for (int x = 0; x < cellCount.x; x++)
             {
-                int index = mineIndices[i];
-                var cell = cellGameObjects[index];
-                cell.GetComponent<Renderer>().material.color = Color.red;
-                cellDatas[index].hasMine = true;
-                var neighbours = GetNeighboringIndices(cell.transform.position);
-                for (int j = 0; j < neighbours.Count; j++)
+                for (int y = 0; y < cellCount.y; y++)
                 {
-                    var neighbourIndex = neighbours[j];
-                    cellDatas[neighbourIndex].mineNeigbourCount++;
+                    var pos = start + new Vector3(CellSize.x * x, CellSize.y * y, 0f);
+                    XIVDebug.DrawBox(pos, CellSize * 0.5f, 10);
                 }
             }
         }
+#endif
+        
     }
 }

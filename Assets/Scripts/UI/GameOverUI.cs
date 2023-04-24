@@ -9,19 +9,16 @@ namespace UI
     {
         [SerializeField] GameObject uiGameObject;
         [SerializeField] Button btn_Restart;
-        [SerializeField] Button btn_Quit;
         [SerializeField] float tweenDuration;
 
         void OnEnable()
         {
             btn_Restart.onClick.AddListener(OnRestartClicked);
-            btn_Quit.onClick.AddListener(OnQuitClicked);
         }
 
         void OnDisable()
         {
             btn_Restart.onClick.RemoveListener(OnRestartClicked);
-            btn_Quit.onClick.RemoveListener(OnQuitClicked);
         }
 
         public void ShowUI()
@@ -45,11 +42,6 @@ namespace UI
             {
                 SceneManager.LoadScene(SceneManager.GetActiveScene().name);
             });
-        }
-
-        void OnQuitClicked()
-        {
-            Application.Quit();
         }
     }
     

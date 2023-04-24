@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -23,11 +24,18 @@ namespace GridSystems
         [SerializeField] int mineCount;
         [SerializeField] float cellPadding;
         [SerializeField] GameObject cellPrefab;
+        [SerializeField] Material[] mineClickedMaterials;
+        [SerializeField] Material[] emptyFieldMaterials;
+        [SerializeField] float materialChangeDuration = 0.75f;
+        
         GameObject[] cellGameObjects;
         CellData[] cellDatas;
         int[] mineIndices;
-        GameObject acitveCell;
+        int acitveCell = -1;
+        Material previousMaterial;
         Vector3 CellSize => new Vector3(areaSize.x / cellCount.x, areaSize.y / cellCount.y, 0f);
+
+        bool inputDisabled;
 
 #if UNITY_EDITOR
         public bool enableGizmos;
@@ -211,12 +219,16 @@ namespace GridSystems
             ref var celldata = ref cellDatas[cellIndex];
             if (celldata.explored) return;
             celldata.explored = true;
-            cellGameObjects[cellIndex].GetComponent<Renderer>().material.color = Color.blue;
-            
-            var txt = cellGameObjects[cellIndex].GetComponentInChildren<TMP_Text>();
-            txt.enabled = true;
-            txt.text = celldata.mineNeigbourCount.ToString();
-            txt.color = Color.Lerp(Color.green, Color.blue, cellDatas[cellIndex].mineNeigbourCount / 8f);
+            var materialChanger = cellGameObjects[cellIndex].AddComponent<MaterialChanger>();
+            materialChanger.duration = materialChangeDuration;
+            materialChanger.materials = emptyFieldMaterials;
+            var nearMines = celldata.mineNeigbourCount;
+            materialChanger.OnDestroyed += (go) =>
+            {
+                var txt = go.GetComponentInChildren<TMP_Text>();
+                txt.enabled = true;
+                txt.text = nearMines.ToString();
+            };
             
             if (celldata.mineNeigbourCount > 0) return;
             
@@ -233,18 +245,42 @@ namespace GridSystems
             }
         }
 
+        IEnumerator Explore(int index)
+        {
+            ExploreCell(index);
+            yield return new WaitForSeconds(materialChangeDuration * (cellDatas[index].hasMine ? mineClickedMaterials.Length : emptyFieldMaterials.Length));
+            inputDisabled = false;
+        }
+
         void IPointerDownHandler.OnPointerDown(PointerEventData eventData)
         {
+        }
+
+        void IPointerUpHandler.OnPointerUp(PointerEventData eventData)
+        {
+            if (inputDisabled) return;
+            inputDisabled = true;
+            ResetActiveCell();
+            acitveCell = -1;
+            previousMaterial = null;
+            
             var worldPos = Camera.main.ScreenToWorldPoint(eventData.position);
             int index = GetIndexByWorldPos(worldPos);
             var celldata = cellDatas[index];
             if (celldata.hasMine)
             {
-                Debug.LogWarning("Game Over");
+                var materialChanger = cellGameObjects[index].AddComponent<MaterialChanger>();
+                materialChanger.duration = materialChangeDuration;
+                materialChanger.materials = mineClickedMaterials;
+                materialChanger.OnDestroyed += (go) =>
+                {
+                    Debug.LogWarning("Game Over");
+                };
                 return;
             }
-            
-            ExploreCell(index);
+
+            StartCoroutine(Explore(index));
+            // ExploreCell(index);
             int exploredCount = 0;
             for (int i = 0; i < cellDatas.Length; i++)
             {
@@ -259,18 +295,28 @@ namespace GridSystems
             }
         }
 
-        void IPointerUpHandler.OnPointerUp(PointerEventData eventData)
+        void ResetActiveCell()
         {
+            if (acitveCell == -1) return;
             
+            var previousRenderer = cellGameObjects[acitveCell].GetComponent<Renderer>();
+            previousRenderer.material = previousMaterial;
         }
 
         void IPointerMoveHandler.OnPointerMove(PointerEventData eventData)
         {
+            if (inputDisabled) return;
+            
             var worldPos = Camera.main.ScreenToWorldPoint(eventData.position);
             int index = GetIndexByWorldPos(worldPos);
-            acitveCell = cellGameObjects[index];
+
+            ResetActiveCell();
+            acitveCell = index;
+            var currentRenderer = cellGameObjects[acitveCell].GetComponent<Renderer>();
+            previousMaterial = currentRenderer.material;
+            currentRenderer.material = emptyFieldMaterials[0];
 #if UNITY_EDITOR
-            XIVDebug.DrawBox(acitveCell.transform.position, CellSize * 0.5f, 0.25f);
+            XIVDebug.DrawBox(cellGameObjects[acitveCell].transform.position, CellSize * 0.5f, 0.25f);
 #endif
         }
         

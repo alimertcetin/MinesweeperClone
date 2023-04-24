@@ -247,8 +247,23 @@ namespace GridSystems
         IEnumerator Explore(int index)
         {
             ExploreCell(index);
-            yield return new WaitForSeconds(materialChangeDuration * (cellDatas[index].hasMine ? mineClickedMaterials.Length : emptyFieldMaterials.Length));
+            yield return new WaitForSeconds(materialChangeDuration * emptyFieldMaterials.Length);
             inputDisabled = false;
+        }
+
+        IEnumerator BlastAllMines()
+        {
+            for (int i = 0; i < mineIndices.Length; i++)
+            {
+                int index = mineIndices[i];
+                if (cellGameObjects[index].GetComponent<MaterialChanger>() != null) continue;
+                
+                var materialChanger = cellGameObjects[index].AddComponent<MaterialChanger>();
+                materialChanger.duration = materialChangeDuration;
+                materialChanger.materials = mineClickedMaterials;
+                yield return new WaitForSeconds(materialChangeDuration * 0.5f);
+            }
+            Debug.LogWarning("Game Over");
         }
 
         void IPointerDownHandler.OnPointerDown(PointerEventData eventData)
@@ -271,15 +286,11 @@ namespace GridSystems
                 var materialChanger = cellGameObjects[index].AddComponent<MaterialChanger>();
                 materialChanger.duration = materialChangeDuration;
                 materialChanger.materials = mineClickedMaterials;
-                materialChanger.OnDestroyed += (go) =>
-                {
-                    Debug.LogWarning("Game Over");
-                };
+                StartCoroutine(BlastAllMines());
                 return;
             }
 
             StartCoroutine(Explore(index));
-            // ExploreCell(index);
             int exploredCount = 0;
             for (int i = 0; i < cellDatas.Length; i++)
             {

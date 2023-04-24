@@ -17,78 +17,134 @@ namespace GridSystems
     [RequireComponent(typeof(BoxCollider))]
     public class GridManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerMoveHandler
     {
+        [SerializeField] Vector2 areaSize;
         [Tooltip("Beginner: 9x9 grid with 10 mines, Intermediate: 16x16 grid with 40 mines, Expert: 16x30 grid with 99 mines")]
-        [SerializeField] Vector2Int gridSize;
+        [SerializeField] Vector2Int cellCount;
         [SerializeField] int mineCount;
-        [SerializeField] float offset = 1.25f;
+        [SerializeField] float cellPadding;
         [SerializeField] GameObject cellPrefab;
         [SerializeField] GameObject[] cellGameObjects;
         CellData[] cellDatas;
         int[] mineIndices;
         Vector2Int cachedGridSize;
-        float cachedOffset;
+        Vector2 cachedAreaSize;
+        float cachedPadding;
+        public bool enableGizmos;
         
+        #if UNITY_EDITOR
+        void OnDrawGizmos()
+        {
+            if (enableGizmos == false) return;
+            DrawBox(transform.position, areaSize * 0.5f);
+            
+            var cellSize = new Vector3(areaSize.x / cellCount.x, areaSize.y / cellCount.y, 0f);
+            var start = transform.position - (Vector3)(areaSize * 0.5f) + (cellSize * 0.5f);
+            
+            for (int x = 0; x < cellCount.x; x++)
+            {
+                for (int y = 0; y < cellCount.y; y++)
+                {
+                    var pos = start + new Vector3(cellSize.x * x, cellSize.y * y, 0f);
+                    DrawBox(pos, cellSize * 0.5f, 10);
+                }
+            }
+        }
+        #endif
+
         void Awake()
         {
-            int length = gridSize.y * gridSize.x;
+            int length = cellCount.y * cellCount.x;
             cellGameObjects = new GameObject[length];
             cellDatas = new CellData[length];
-            var xSize = 10f / (gridSize.x * offset);
-            var ySize = 10f / (gridSize.y * offset);
+        }
 
-            var bottomLeft = transform.position - new Vector3((gridSize.x - 1) * 0.5f, (gridSize.y - 1) * 0.5f, 0f);
-            for (int y = 0; y < gridSize.y; y++)
+        void Init()
+        {
+            var cellSize = new Vector3(areaSize.x / cellCount.x, areaSize.y / cellCount.y, 0f);
+            var start = transform.position - (Vector3)(areaSize * 0.5f) + (cellSize * 0.5f);
+            
+            for (int x = 0; x < cellCount.x; x++)
             {
-                for (int x = 0; x < gridSize.x; x++)
+                for (int y = 0; y < cellCount.y; y++)
                 {
-                    GameObject cell = Instantiate(cellPrefab, this.transform, true);
-                    cell.gameObject.name = $"Cell_({x},{y})";
-                    cell.transform.position = bottomLeft + new Vector3(x, y, 0f);
-                    cell.transform.localScale = new Vector3(xSize, ySize, 1f);
-
-                    int index = x * gridSize.y + y;
+                    var pos = start + new Vector3(cellSize.x * x, cellSize.y * y, 0f);
+                    var cell = CreateCell(x, y, pos, cellSize);
+                    
+                    int index = x * cellCount.y + y;
                     cellGameObjects[index] = cell;
-                    cellDatas[index] = new CellData();
-                    cell.GetComponentInChildren<TMP_Text>().enabled = false;
                 }
             }
 
-            var coll = GetComponent<BoxCollider>();
-            coll.size = new Vector3((gridSize.x + 1), (gridSize.y + 1), coll.size.z);
+            SetCollSize();
             PlaceMines();
         }
 
         void Update()
         {
-            if (cachedGridSize != gridSize || Math.Abs(cachedOffset - offset) > 0.1f)
+            if (cachedGridSize != cellCount || cachedAreaSize != areaSize || Math.Abs(cachedPadding - cellPadding) > 0.01f)
             {
                 for (int i = 0; i < cellGameObjects.Length; i++)
                 {
                     Destroy(cellGameObjects[i]);
                 }
 
-                Awake();
-                cachedGridSize = gridSize;
-                cachedOffset = offset;
+                Init();
+                cachedGridSize = cellCount;
+                cachedAreaSize = areaSize;
+                cachedPadding = cellPadding;
             }
         }
 
         int GetIndexByWorldPos(Vector3 worldPos)
         {
+            var cellSize = new Vector3(areaSize.x / cellCount.x, areaSize.y / cellCount.y, 0f) - (Vector3.one * cellPadding);
             var localPos = transform.InverseTransformPoint(worldPos);
-            int xLength = gridSize.x - 1;
-            int yLength = gridSize.y - 1;
+            var xLength = areaSize.x;
+            var yLength = areaSize.y;
 
-            float normalizedX = (localPos.x + xLength / 2f) / xLength;
-            float normalizedY = (localPos.y + yLength / 2f) / yLength;
-            normalizedX = Mathf.Clamp(normalizedX, 0, 1f);
-            normalizedY = Mathf.Clamp(normalizedY, 0, 1f);
+            float normalizedX = (localPos.x + xLength / 2f - cellSize.x * 0.5f) / xLength;
+            float normalizedY = (localPos.y + yLength / 2f - cellSize.y * 0.5f) / yLength;
+            normalizedX = Mathf.Clamp(normalizedX, 0, normalizedX);
+            normalizedY = Mathf.Clamp(normalizedY, 0, normalizedY);
+            Debug.Log(nameof(normalizedX) + " : " + normalizedX);
+            Debug.Log(nameof(normalizedY) + " : " + normalizedY);
 
-            int x = (int)Math.Round((gridSize.x - 1) * normalizedX);
-            int y = (int)Math.Round((gridSize.y - 1) * normalizedY);
-            int index = x * gridSize.y + y;
+            int x = (int)Math.Round(cellCount.x * normalizedX);
+            int y = (int)Math.Round(cellCount.y * normalizedY); 
+            int index = x * cellCount.y + y;
             index = Mathf.Clamp(index, 0, cellGameObjects.Length - 1);
             return index;
+        }
+
+        void SetCollSize()
+        {
+            var coll = GetComponent<BoxCollider>();
+            coll.size = new Vector3(areaSize.x, areaSize.y, coll.size.z);
+        }
+
+        static void DrawBox(Vector3 pos, Vector3 halfExtend, float duration = 0)
+        {
+            var bottomLeft = pos - halfExtend;
+            var topRight = pos + halfExtend;
+            Debug.DrawLine(bottomLeft, topRight, Color.black, 5f);
+                    
+            Debug.DrawLine(bottomLeft, new Vector3(topRight.x, bottomLeft.y), Color.red, duration);
+            Debug.DrawLine(new Vector3(topRight.x, bottomLeft.y), topRight, Color.green, duration);
+            Debug.DrawLine(topRight, new Vector3(bottomLeft.x, topRight.y), Color.red, duration);
+            Debug.DrawLine(new Vector3(bottomLeft.x, topRight.y), bottomLeft, Color.green, duration);
+        }
+
+        GameObject CreateCell(int x, int y, Vector3 pos, Vector3 cellSize)
+        {
+            GameObject cell = Instantiate(cellPrefab, this.transform, true);
+            cell.gameObject.name = $"Cell_({x},{y})";
+            cell.transform.position = pos;
+            var size3D = cellSize - (Vector3.one * cellPadding);
+            size3D.z = cell.transform.localScale.z;
+            cell.transform.localScale = size3D;
+            
+            cell.GetComponentInChildren<TMP_Text>().enabled = false;
+            return cell;
         }
         
         List<int> GetNeighboringIndices(Vector3 worldPos)
@@ -96,8 +152,8 @@ namespace GridSystems
             List<int> neighborIndices = new List<int>();
 
             int centerIndex = GetIndexByWorldPos(worldPos);
-            int x = centerIndex / gridSize.y;
-            int y = centerIndex % gridSize.y;
+            int x = centerIndex / cellCount.y;
+            int y = centerIndex % cellCount.y;
 
             for (int i = -1; i <= 1; i++)
             {
@@ -108,9 +164,9 @@ namespace GridSystems
                     int neighborX = x + i;
                     int neighborY = y + j;
 
-                    if (neighborX < 0 || neighborX >= gridSize.x || neighborY < 0 || neighborY >= gridSize.y) continue;
+                    if (neighborX < 0 || neighborX >= cellCount.x || neighborY < 0 || neighborY >= cellCount.y) continue;
 
-                    int neighborIndex = neighborX * gridSize.y + neighborY;
+                    int neighborIndex = neighborX * cellCount.y + neighborY;
                     neighborIndices.Add(neighborIndex);
                 }
             }
@@ -241,7 +297,7 @@ namespace GridSystems
 
         void PlaceMines()
         {
-            mineIndices = GetDenseArr(gridSize.x, gridSize.y, mineCount);
+            mineIndices = GetDenseArr(cellCount.x, cellCount.y, mineCount);
 
             for (int i = 0; i < mineIndices.Length; i++)
             {

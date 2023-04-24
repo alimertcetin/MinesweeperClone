@@ -60,6 +60,14 @@ namespace GridSystems
 
         void Init()
         {
+            int length = cellCount.y * cellCount.x;
+            if (length < 0) return;
+            if (length != cellGameObjects.Length)
+            {
+                Array.Resize(ref cellGameObjects, length);
+                Array.Resize(ref cellDatas, length);
+            }
+            
             var cellSize = new Vector3(areaSize.x / cellCount.x, areaSize.y / cellCount.y, 0f);
             var start = transform.position - (Vector3)(areaSize * 0.5f) + (cellSize * 0.5f);
             

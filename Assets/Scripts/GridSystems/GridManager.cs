@@ -5,7 +5,7 @@ using TMPro;
 using UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using XIV;
+using XIV.Core;
 
 namespace GridSystems
 {
@@ -335,7 +335,7 @@ namespace GridSystems
             previousMaterial = currentRenderer.material;
             currentRenderer.material = emptyFieldMaterials[0];
 #if UNITY_EDITOR
-            XIVDebug.DrawBox(cellGameObjects[acitveCell].transform.position, CellSize * 0.5f, 0.25f);
+            XIVDebug.DrawRectangle(cellGameObjects[acitveCell].transform.position, CellSize * 0.5f, 0.25f);
 #endif
         }
         
@@ -386,7 +386,7 @@ namespace GridSystems
         void OnDrawGizmos()
         {
             if (enableGizmos == false) return;
-            XIVDebug.DrawBox(transform.position, areaSize * 0.5f);
+            XIVDebug.DrawRectangle(transform.position, areaSize * 0.5f);
             
             var start = transform.position - (Vector3)(areaSize * 0.5f) + (CellSize * 0.5f);
             
@@ -395,7 +395,7 @@ namespace GridSystems
                 for (int y = 0; y < cellCount.y; y++)
                 {
                     var pos = start + new Vector3(CellSize.x * x, CellSize.y * y, 0f);
-                    XIVDebug.DrawBox(pos, CellSize * 0.5f, 10);
+                    XIVDebug.DrawRectangle(pos, CellSize * 0.5f, 10);
                 }
             }
         }

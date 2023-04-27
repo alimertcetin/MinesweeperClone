@@ -1,0 +1,3 @@
+[submodule "Assets/XIV"]
+	path = Assets/XIV
+	url = https://github.com/alimertcetin/XIV.git

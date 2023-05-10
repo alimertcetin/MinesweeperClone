@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using XIV.Core;
 using XIV.Core.Collections;
 
 namespace XIV.GridSystems
@@ -195,6 +196,58 @@ namespace XIV.GridSystems
             }
 
             return cellDataBuffer;
+        }
+        
+        public DynamicArray<GridXY> DivideGridIntoSubGrids(Vector2Int subGridCellCount)
+        {
+            DynamicArray<GridXY> subgrids = new DynamicArray<GridXY>(2);
+
+            for (int i = 0; i < cellCount.x; i+= subGridCellCount.x)
+            {
+                for (int j = 0; j < cellCount.y; j+= subGridCellCount.y)
+                {
+                    subgrids.Add() = CreateSubGrid(i, j, subGridCellCount);
+                }
+            }
+            return subgrids;
+        }
+
+        GridXY CreateSubGrid(int startX, int startY, Vector2Int subGridCellCount)
+        {
+            Vector3 subGridCenter = Vector3.zero;
+            int validTotalCellCount = 0;
+
+            int loopX = startX + subGridCellCount.x;
+            int loopY = startY + subGridCellCount.y;
+            for (int i = startX; i < loopX && i < cellCount.x; i++)
+            {
+                for (int j = startY; j < loopY && j < cellCount.y; j++)
+                {
+                    int index = i * cellCount.y + j;
+                    validTotalCellCount++;
+                    subGridCenter += cellDatas[index].worldPos;
+                }
+            }
+
+            Vector2Int validSubGridCellCount = new Vector2Int(
+                Mathf.Min(subGridCellCount.x, this.cellCount.x - startX), 
+                Mathf.Min(subGridCellCount.y, this.cellCount.y - startY));
+
+            Vector2 size = CellSize;
+            size.x *= validSubGridCellCount.x;
+            size.y *= validSubGridCellCount.y;
+
+            return new GridXY(subGridCenter / validTotalCellCount, size, validSubGridCellCount);
+        }
+
+        public static void DisplayGrid(GridXY grid, float duration = 0f)
+        {
+            var cells = grid.GetCells();
+            for (var i = 0; i < cells.Count; i++)
+            {
+                ref CellData cellData = ref cells[i];
+                XIVDebug.DrawRectangle(cellData.worldPos, cellData.cellSize * 0.5f, duration);
+            }
         }
     }
 }

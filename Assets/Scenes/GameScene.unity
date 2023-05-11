@@ -1027,6 +1027,68 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1196321657}
   m_CullTransparentMesh: 1
+--- !u!1 &1580190882
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1580190885}
+  - component: {fileID: 1580190884}
+  - component: {fileID: 1580190883}
+  m_Layer: 0
+  m_Name: GameManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1580190883
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1580190882}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c71050af741472ca720d42313b56e7f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  selectionChangedClip: {fileID: 8300000, guid: 489d4b940bc981d479d561cbdc8db3ab, type: 3}
+  selectionClickedClip: {fileID: 8300000, guid: cd5e92bdbd0a696459b0b5fe929ae02c, type: 3}
+  mineExplosionClip: {fileID: 8300000, guid: 5a125c6c5abc10c418b854ebb3dcd12c, type: 3}
+--- !u!65 &1580190884
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1580190882}
+  m_Material: {fileID: 0}
+  m_IsTrigger: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!4 &1580190885
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1580190882}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1795070327}
+  m_Father: {fileID: 0}
+  m_RootOrder: 3
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1629331872
 GameObject:
   m_ObjectHideFlags: 0
@@ -1239,13 +1301,13 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1795070326}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
-  m_RootOrder: 3
+  m_Father: {fileID: 1580190885}
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1795070328
 MonoBehaviour:
@@ -1259,7 +1321,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f3fdfdc1997e02b4c9e450373d45723a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  areaSize: {x: 15, y: 20}
+  AreaSize: {x: 15, y: 20}
   cellCount: {x: 9, y: 9}
   mineCount: 10
   cellPadding: 0.25
@@ -1273,10 +1335,7 @@ MonoBehaviour:
   - {fileID: 2100000, guid: 7b73fcb7e6b18584fa7486d9e9617e9b, type: 2}
   - {fileID: 2100000, guid: ae764e15d929a7a48a1510209a454dad, type: 2}
   - {fileID: 2100000, guid: 3d01e1446f5873d4fbfde1f68ed3c1bc, type: 2}
-  materialChangeDuration: 0.75
-  selectionChangedClip: {fileID: 8300000, guid: 489d4b940bc981d479d561cbdc8db3ab, type: 3}
-  selectionClickedClip: {fileID: 8300000, guid: cd5e92bdbd0a696459b0b5fe929ae02c, type: 3}
-  enableGizmos: 0
+  drawGizmos: 1
 --- !u!65 &1795070329
 BoxCollider:
   m_ObjectHideFlags: 0

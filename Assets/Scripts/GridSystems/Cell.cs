@@ -4,7 +4,7 @@ using XIV.Core.Utils;
 using XIV.PoolSystem;
 using XIV.TweenSystem;
 
-namespace GridSystems
+namespace Minesweeper.GridSystems
 {
     public class Cell : MonoBehaviour
     {

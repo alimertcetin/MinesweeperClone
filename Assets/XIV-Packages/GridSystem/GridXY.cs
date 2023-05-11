@@ -37,6 +37,8 @@ namespace XIV.GridSystems
             }
         }
         
+        public Vector3 CellSize => new Vector3(areaSize.x / cellCount.x, areaSize.y / cellCount.y, 0f);
+
         public bool IsDirty => isDirty;
 
         Vector3 gridCenter;
@@ -46,7 +48,6 @@ namespace XIV.GridSystems
 
         readonly DynamicArray<CellData> cellDatas;
         readonly DynamicArray<IGridListener> gridListeners;
-        Vector3 CellSize => new Vector3(areaSize.x / cellCount.x, areaSize.y / cellCount.y, 0f);
         static readonly DynamicArray<int> neighbourIndicesBuffer = new DynamicArray<int>(8);
         static readonly DynamicArray<CellData> cellDataBuffer = new DynamicArray<CellData>(8);
 

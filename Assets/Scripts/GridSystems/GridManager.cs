@@ -1,405 +1,260 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
+using Minesweeper.Utils;
 using TMPro;
-using UI;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using XIV.Core;
+using XIV.Core.Collections;
+using XIV.Core.Extensions;
+using XIV.GridSystems;
+using Random = UnityEngine.Random;
 
-namespace GridSystems
+namespace Minesweeper.GridSystems
 {
-    struct CellData
+    public struct CellData
     {
-        public bool explored;
+        public int index;
+        public bool isRevealed;
         public bool hasMine;
         public int mineNeigbourCount;
     }
-    
-    [RequireComponent(typeof(BoxCollider))]
-    public class GridManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerMoveHandler
+
+    public class GridManager : MonoBehaviour, IGridListener
     {
-        [SerializeField] Vector2 areaSize;
+        public Vector2 AreaSize = new Vector2(15f, 20f);
         [Tooltip("Beginner: 9x9 grid with 10 mines, Intermediate: 16x16 grid with 40 mines, Expert: 16x30 grid with 99 mines")]
         [SerializeField] Vector2Int cellCount;
+
         [SerializeField] int mineCount;
         [SerializeField] float cellPadding;
         [SerializeField] GameObject cellPrefab;
         [SerializeField] Material[] mineClickedMaterials;
         [SerializeField] Material[] emptyFieldMaterials;
-        [SerializeField] float materialChangeDuration = 0.75f;
-        [SerializeField] AudioClip selectionChangedClip;
-        [SerializeField] AudioClip selectionClickedClip;
 
-        AudioSource audioSource;
-        
-        GameObject[] cellGameObjects;
         CellData[] cellDatas;
+        Cell[] cellGameobjects;
+        AudioSource audioSource;
+        GridXY gridXY;
+        int selectedIndex = -1;
+        bool minePlaced;
+        bool exploreLock;
+        public bool drawGizmos;
         int[] mineIndices;
-        int acitveCell = -1;
-        Material previousMaterial;
-        Vector3 CellSize => new Vector3(areaSize.x / cellCount.x, areaSize.y / cellCount.y, 0f);
-
-        bool inputDisabled;
-
-#if UNITY_EDITOR
-        public bool enableGizmos;
-        Vector2 cachedAreaSize;
-#endif
 
         void Awake()
         {
-            CreateCells();
-            audioSource = new GameObject("GridManager-AudioSource").AddComponent<AudioSource>();
+            gridXY = new GridXY(transform.position, AreaSize, cellCount);
+            var cellDatas = gridXY.GetCells();
+            int count = cellDatas.Count;
+            this.cellDatas = new CellData[count];
+            cellGameobjects = new Cell[count];
+            for (int i = 0; i < count; i++)
+            {
+                ref var cellData = ref cellDatas[i];
+                var cell = Instantiate(cellPrefab, cellData.worldPos, Quaternion.identity, transform).GetComponent<Cell>();
+                cell.transform.localScale = cellData.cellSize.SetZ(cell.transform.localScale.z);
+                cell.Initialize();
+                cellGameobjects[cellData.index] = cell;
+                this.cellDatas[cellData.index].index = cellData.index;
+            }
+
+            audioSource = gameObject.GetComponent<AudioSource>();
+            if (audioSource == null) audioSource = gameObject.AddComponent<AudioSource>();
+
+            GetComponent<BoxCollider>().size = ((Vector3)AreaSize).SetZ(transform.localScale.z + 0.1f) * 2f;
         }
 
-        [ContextMenu(nameof(CreateCells))]
-        void CreateCells()
+        void OnEnable()
         {
-            ClearCells();
-
-            int length = cellCount.y * cellCount.x;
-            if (length < 0) return;
-            cellGameObjects = new GameObject[length];
-            cellDatas = new CellData[length];
-            if (length != cellGameObjects.Length)
-            {
-                Array.Resize(ref cellGameObjects, length);
-                Array.Resize(ref cellDatas, length);
-            }
-            
-            var start = transform.position - (Vector3)(areaSize * 0.5f) + (CellSize * 0.5f);
-            
-            for (int x = 0; x < cellCount.x; x++)
-            {
-                for (int y = 0; y < cellCount.y; y++)
-                {
-                    var pos = start + new Vector3(CellSize.x * x, CellSize.y * y, 0f);
-                    var cell = CreateCell(x, y, pos, CellSize);
-                    
-                    int index = x * cellCount.y + y;
-                    cellGameObjects[index] = cell;
-                }
-            }
-            
-            var coll = GetComponent<BoxCollider>();
-            coll.size = new Vector3(areaSize.x, areaSize.y, coll.size.z);
-            PlaceMines();
-
-#if UNITY_EDITOR
-            cachedAreaSize = areaSize;
-#endif
+            gridXY.AddListener(this);
         }
 
-        [ContextMenu(nameof(ClearCells))]
-        void ClearCells()
+        void OnDisable()
         {
-            if (cellGameObjects != null && cellGameObjects.Length > 0)
-            {
-                for (int i = 0; i < cellGameObjects.Length; i++)
-                {
-                    if (Application.isPlaying) Destroy(cellGameObjects[i]);
-                    else DestroyImmediate(cellGameObjects[i]);
-                }
-
-                Array.Clear(cellGameObjects, 0, cellGameObjects.Length);
-            }
-
-            for (int i = 0; i < transform.childCount; i++)
-            {
-                if (Application.isPlaying) Destroy(transform.GetChild(i));
-                else DestroyImmediate(transform.GetChild(i).gameObject);
-            }
+            gridXY.RemoveListener(this);
         }
-
-#if UNITY_EDITOR
-        void Update()
-        {
-            if (cachedAreaSize != areaSize)
-            {
-                ResizeCells();
-                cachedAreaSize = areaSize;
-            }
-        }
-#endif
         
-        void ResizeCells()
+#if UNITY_EDITOR
+        
+        void OnDrawGizmos()
         {
-            var start = transform.position - (Vector3)(areaSize * 0.5f) + (CellSize * 0.5f);
-
-            for (int x = 0; x < cellCount.x; x++)
+            if (drawGizmos == false) return;
+            
+            var cellDatas = GridXY.GetCells(transform.position, AreaSize, cellCount);
+            for (int i = 0; i < cellDatas.Count; i++)
             {
-                for (int y = 0; y < cellCount.y; y++)
-                {
-                    int index = x * cellCount.y + y;
-                    var pos = start + new Vector3(CellSize.x * x, CellSize.y * y, 0f);
-                    var cell = cellGameObjects[index];
-                    cell.transform.position = pos;
-                    var size3D = CellSize - (Vector3.one * cellPadding);
-                    size3D.z = cell.transform.localScale.z;
-                    cell.transform.localScale = size3D;
-                }
+                ref var cellData = ref cellDatas[i];
+                XIVDebug.DrawRectangle(cellData.worldPos, cellData.cellSize * 0.5f);
             }
         }
+        
+#endif
 
-        void PlaceMines()
+        void PlaceMines(int clickedIndex)
         {
-            mineIndices = GetDenseArr(cellCount.x, cellCount.y, mineCount);
-
-            for (int i = 0; i < mineIndices.Length; i++)
+            DynamicArray<int> clickedNeighbourIndices = new DynamicArray<int>(gridXY.GetNeighbourIndices(clickedIndex));
+            // Remove some of the neighbours to leave some space for poisson disc sampling and mine placement
+            for (int i = 0; i < 4 && i < clickedNeighbourIndices.Count; i++)
             {
-                int index = mineIndices[i];
-                var cell = cellGameObjects[index];
+                clickedNeighbourIndices.RemoveAt(Random.Range(0, clickedNeighbourIndices.Count));
+            }
+            clickedNeighbourIndices.Add() = clickedIndex;
+            
+            mineIndices = new int[mineCount];
+            var points = GetPoints(clickedNeighbourIndices);
+            SetMineIndices(points, clickedNeighbourIndices);
+
+            for (int i = 0; i < 30 && mineIndices.Contains(0); i++)
+            {
+                var newPoints = GetPoints(clickedNeighbourIndices);
+                SetMineIndices(newPoints, clickedNeighbourIndices);
+            }
+            
+            for (int i = 0; i < mineCount; i++)
+            {
+                int index = mineIndices[i] - 1; // 1 based
+                if (index < 0)
+                {
+                    Debug.Log("Not placed");
+                    continue;
+                }
+
                 cellDatas[index].hasMine = true;
-                var neighbours = GetNeighboringIndices(cell.transform.position);
-                for (int j = 0; j < neighbours.Count; j++)
-                {
-                    var neighbourIndex = neighbours[j];
-                    cellDatas[neighbourIndex].mineNeigbourCount++;
-                }
             }
+
+            minePlaced = true;
         }
 
-        GameObject CreateCell(int x, int y, Vector3 pos, Vector3 cellSize)
+        void SetMineIndices(Vector3[] points, DynamicArray<int> clickedNeighbourIndices)
         {
-            GameObject cell = Instantiate(cellPrefab, this.transform, true);
-            cell.gameObject.name = $"Cell_({x},{y})";
-            cell.transform.position = pos;
-            var size3D = cellSize - (Vector3.one * cellPadding);
-            size3D.z = cell.transform.localScale.z;
-            cell.transform.localScale = size3D;
-            
-            cell.GetComponentInChildren<TMP_Text>().enabled = false;
-            return cell;
-        }
-
-        int GetIndexByWorldPos(Vector3 worldPos)
-        {
-            var cellSize = CellSize - (Vector3.one * cellPadding);
-            var localPos = transform.InverseTransformPoint(worldPos);
-            var xLength = areaSize.x;
-            var yLength = areaSize.y;
-
-            float normalizedX = (localPos.x + xLength / 2f - cellSize.x * 0.5f) / xLength;
-            float normalizedY = (localPos.y + yLength / 2f - cellSize.y * 0.5f) / yLength;
-            normalizedX = Mathf.Clamp(normalizedX, 0, normalizedX);
-            normalizedY = Mathf.Clamp(normalizedY, 0, normalizedY);
-
-            int x = (int)Math.Round(cellCount.x * normalizedX);
-            int y = (int)Math.Round(cellCount.y * normalizedY); 
-            int index = x * cellCount.y + y;
-            index = Mathf.Clamp(index, 0, cellGameObjects.Length - 1);
-            return index;
-        }
-        
-        List<int> GetNeighboringIndices(Vector3 worldPos)
-        {
-            List<int> neighborIndices = new List<int>();
-
-            int centerIndex = GetIndexByWorldPos(worldPos);
-            int x = centerIndex / cellCount.y;
-            int y = centerIndex % cellCount.y;
-
-            for (int i = -1; i <= 1; i++)
+            int pointsLength = points.Length;
+            for (int i = 0; i < pointsLength && mineIndices.Contains(0, out int emptyPlaceIndex); i++)
             {
-                for (int j = -1; j <= 1; j++)
+                int index = gridXY.GetIndexByWorldPos(points[i]);
+                ref var cell = ref cellDatas[index];
+                if (cell.hasMine || clickedNeighbourIndices.Contains(ref index)) continue;
+
+                cell.hasMine = true;
+                var neighbourIndices = gridXY.GetNeighbourIndices(index);
+                int neighhbourCount = neighbourIndices.Count;
+                for (int j = 0; j < neighhbourCount; j++)
                 {
-                    if (i == 0 && j == 0) continue;
-
-                    int neighborX = x + i;
-                    int neighborY = y + j;
-
-                    if (neighborX < 0 || neighborX >= cellCount.x || neighborY < 0 || neighborY >= cellCount.y) continue;
-
-                    int neighborIndex = neighborX * cellCount.y + neighborY;
-                    neighborIndices.Add(neighborIndex);
+                    cellDatas[neighbourIndices[j]].mineNeigbourCount++;
                 }
-            }
 
-            return neighborIndices;
+                mineIndices[emptyPlaceIndex] = index + 1; // 1 based
+            }
         }
 
-        void ExploreCell(int cellIndex)
+        Vector3[] GetPoints(DynamicArray<int> clickedNeighbourIndices)
+        {
+            Vector2[] ignoreList = new Vector2[clickedNeighbourIndices.Count];
+            var gridCells = gridXY.GetCells();
+            var cellSize = gridXY.CellSize;
+            for (int i = 0; i < clickedNeighbourIndices.Count; i++)
+            {
+                var cell = gridCells[clickedNeighbourIndices[i]];
+                var localPos = cell.worldPos - (gridXY.GridCenter - (Vector3)(AreaSize * 0.5f) + (cellSize * 0.5f));
+                ignoreList[i] = localPos;
+            }
+
+            var r = Mathf.Sqrt(cellSize.x * cellSize.x + cellSize.y * cellSize.y) * 1.5f;
+            var points = PoissonDiscSampling.GeneratePoints(r, AreaSize, ignore: ignoreList).ToVector3();
+            for (int i = 0; i < points.Length; i++)
+            {
+                points[i] += gridXY.GridCenter - (Vector3)(AreaSize * 0.5f) + cellSize * 0.5f;
+            }
+
+            return points;
+        }
+
+        public void ExploreCell(int cellIndex, bool exploreNeighbours, Action<CellData> onCellExplored)
         {
             ref var celldata = ref cellDatas[cellIndex];
-            if (celldata.explored) return;
-            celldata.explored = true;
-            var materialChanger = cellGameObjects[cellIndex].AddComponent<MaterialChanger>();
-            materialChanger.duration = materialChangeDuration;
-            materialChanger.materials = emptyFieldMaterials;
-            var nearMines = celldata.mineNeigbourCount;
-            materialChanger.OnDestroyed += (go) =>
+            if (celldata.isRevealed) return;
+            celldata.isRevealed = true;
+
+            var materials = cellDatas[cellIndex].hasMine ? mineClickedMaterials : emptyFieldMaterials;
+            cellGameobjects[cellIndex].Explore(materials, () =>
             {
-                var txt = go.GetComponentInChildren<TMP_Text>();
-                txt.enabled = true;
-                txt.text = nearMines.ToString();
-            };
+                selectedIndex = -1;
+                exploreLock = false;
+                var worldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+                var index = gridXY.GetIndexByWorldPos(worldPos);
+                if (index == selectedIndex || cellGameobjects[index].Select() == false) return;
+                selectedIndex = index;
+                onCellExplored?.Invoke(cellDatas[cellIndex]);
+            });
+            cellGameobjects[cellIndex].GetComponentInChildren<TMP_Text>().text = celldata.mineNeigbourCount.ToString();
             
-            if (celldata.mineNeigbourCount > 0) return;
-            
-            var worldPos = cellGameObjects[cellIndex].transform.position;
-            var neighboringIndices = GetNeighboringIndices(worldPos);
+            if (celldata.mineNeigbourCount > 0 || exploreNeighbours == false) return;
+            var neighboringIndices = new DynamicArray<int>(gridXY.GetNeighbourIndices(cellIndex));
             for (int i = 0; i < neighboringIndices.Count; i++)
             {
                 var neighbourIndex = neighboringIndices[i];
                 ref var neighbourCellData = ref cellDatas[neighbourIndex];
-                if (neighbourCellData.hasMine == false && neighbourCellData.explored == false)
+                if (neighbourCellData.hasMine == false)
                 {
-                    ExploreCell(neighbourIndex);
+                    ExploreCell(neighbourIndex, true, onCellExplored);
                 }
             }
         }
 
-        IEnumerator Explore(int index)
+        void IGridListener.OnGridChanged(IGrid grid)
         {
-            ExploreCell(index);
-            yield return new WaitForSeconds(materialChangeDuration * emptyFieldMaterials.Length);
-            inputDisabled = false;
+            var cellDatas = gridXY.GetCells();
+            int count = cellDatas.Count;
+            for (int i = 0; i < count; i++)
+            {
+                ref var cellData = ref cellDatas[i];
+                Cell cell = cellGameobjects[cellData.index];
+                Transform cellTransform = cell.transform;
+                cellTransform.position = cellData.worldPos;
+                cellTransform.localScale = cellData.cellSize - Vector3.one * cellPadding;
+            }
         }
 
-        IEnumerator BlastAllMines()
+        public bool ChangeSelection(Vector3 worldPos)
         {
+            var index = gridXY.GetIndexByWorldPos(worldPos);
+            if (selectedIndex != -1 && (index == selectedIndex || cellGameobjects[selectedIndex].Deselect() == false || cellDatas[index].isRevealed || cellGameobjects[index].Select() == false)) return false;
+            selectedIndex = index;
+            return true;
+        }
+
+        public void PlaceMinesIfNotPlaced(Vector3 worldPos)
+        {
+            if (minePlaced) return;
+            var index = gridXY.GetIndexByWorldPos(worldPos);
+            PlaceMines(index);
+        }
+
+        public CellData GetCellData(Vector3 worldPos)
+        {
+            return cellDatas[gridXY.GetIndexByWorldPos(worldPos)];
+        }
+
+        public void BlastMines(int cellDataIndex, Action onCellBlasted, Action onCompleted = null)
+        {
+            StopAllCoroutines();
+            StartCoroutine(BlastAll(cellDataIndex, onCellBlasted, onCompleted));
+        }
+
+        IEnumerator BlastAll(int cellDataIndex, Action onCellBlasted, Action onCompleted)
+        {
+            cellGameobjects[cellDataIndex].Explore(mineClickedMaterials, onCellBlasted);
+            var duration = 8f / mineIndices.Length;
             for (int i = 0; i < mineIndices.Length; i++)
             {
-                int index = mineIndices[i];
-                if (cellGameObjects[index].GetComponent<MaterialChanger>() != null) continue;
+                var waitTime = Random.Range(0.2f, duration);
+                yield return new WaitForSeconds(waitTime);
+                var index = mineIndices[i] - 1;
+                if (index == cellDataIndex) continue;
                 
-                var materialChanger = cellGameObjects[index].AddComponent<MaterialChanger>();
-                materialChanger.duration = materialChangeDuration;
-                materialChanger.materials = mineClickedMaterials;
-                yield return new WaitForSeconds(materialChangeDuration * 0.5f);
-            }
-            FindObjectOfType<GameOverUI>().ShowUI();
-        }
-
-        void IPointerDownHandler.OnPointerDown(PointerEventData eventData)
-        {
-            audioSource.PlayOneShot(selectionClickedClip);
-        }
-
-        void IPointerUpHandler.OnPointerUp(PointerEventData eventData)
-        {
-            if (inputDisabled) return;
-            inputDisabled = true;
-            ResetActiveCell();
-            acitveCell = -1;
-            previousMaterial = null;
-            
-            var worldPos = Camera.main.ScreenToWorldPoint(eventData.position);
-            int index = GetIndexByWorldPos(worldPos);
-            var celldata = cellDatas[index];
-            if (celldata.hasMine)
-            {
-                var materialChanger = cellGameObjects[index].AddComponent<MaterialChanger>();
-                materialChanger.duration = materialChangeDuration;
-                materialChanger.materials = mineClickedMaterials;
-                StartCoroutine(BlastAllMines());
-                return;
+                cellGameobjects[index].Explore(mineClickedMaterials, onCellBlasted);
             }
 
-            StartCoroutine(Explore(index));
-            int exploredCount = 0;
-            for (int i = 0; i < cellDatas.Length; i++)
-            {
-                if (cellDatas[i].hasMine || cellDatas[i].explored == false) continue;
-                exploredCount++;
-            }
-
-            var left = cellDatas.Length - mineIndices.Length - exploredCount;
-            if (left == 0)
-            {
-                FindObjectOfType<GameOverUI>().ShowUI();
-            }
+            onCompleted?.Invoke();
         }
-
-        void ResetActiveCell()
-        {
-            if (acitveCell == -1) return;
-            
-            var previousRenderer = cellGameObjects[acitveCell].GetComponent<Renderer>();
-            previousRenderer.material = previousMaterial;
-        }
-
-        void IPointerMoveHandler.OnPointerMove(PointerEventData eventData)
-        {
-            if (inputDisabled) return;
-            
-            var worldPos = Camera.main.ScreenToWorldPoint(eventData.position);
-            int index = GetIndexByWorldPos(worldPos);
-
-            if (acitveCell == index) return;
-            ResetActiveCell();
-            acitveCell = index;
-            audioSource.PlayOneShot(selectionChangedClip);
-            var currentRenderer = cellGameObjects[acitveCell].GetComponent<Renderer>();
-            previousMaterial = currentRenderer.material;
-            currentRenderer.material = emptyFieldMaterials[0];
-#if UNITY_EDITOR
-            XIVDebug.DrawRectangle(cellGameObjects[acitveCell].transform.position, CellSize * 0.5f, 0.25f);
-#endif
-        }
-        
-        static int[] GetDenseArr(int xSize, int ySize, int desiredTrueCellCount)
-        {
-            int totalCells = xSize * ySize;
-            int[] result = new int[totalCells];
-            
-            // Calculate the number of "true" cells to put in each row
-            int trueCellsPerRow = desiredTrueCellCount / ySize;
-            int remainingTrueCells = desiredTrueCellCount % ySize;
-
-            // Distribute "true" cells evenly across the rows
-            System.Random rand = new System.Random();
-            int[] rowIndices = new int[xSize];
-            for (int row = 0; row < ySize; row++)
-            {
-                int trueCountForRow = trueCellsPerRow + (remainingTrueCells > 0 ? 1 : 0);
-                remainingTrueCells--;
-
-                for (int i = 0; i < xSize; i++)
-                {
-                    rowIndices[i] = 0;
-                }
-
-                // Randomize the position of "true" cells in the row
-                for (int col = 0; col < xSize; col++)
-                {
-                    rowIndices[col] = row * xSize + col;
-                }
-
-                for (int j = 0; j < xSize; j++)
-                {
-                    int randIndex = rand.Next(j, rowIndices.Length);
-                    (rowIndices[j], rowIndices[randIndex]) = (rowIndices[randIndex], rowIndices[j]);
-                }
-
-                for (int j = 0; j < trueCountForRow; j++)
-                {
-                    result[rowIndices[j]] = rowIndices[j];
-                }
-            }
-
-            return Array.FindAll(result, (val) => val > 0);
-        }
-        
-#if UNITY_EDITOR
-        void OnDrawGizmos()
-        {
-            if (enableGizmos == false) return;
-            XIVDebug.DrawRectangle(transform.position, areaSize * 0.5f);
-            
-            var start = transform.position - (Vector3)(areaSize * 0.5f) + (CellSize * 0.5f);
-            
-            for (int x = 0; x < cellCount.x; x++)
-            {
-                for (int y = 0; y < cellCount.y; y++)
-                {
-                    var pos = start + new Vector3(CellSize.x * x, CellSize.y * y, 0f);
-                    XIVDebug.DrawRectangle(pos, CellSize * 0.5f, 10);
-                }
-            }
-        }
-#endif
-        
     }
 }

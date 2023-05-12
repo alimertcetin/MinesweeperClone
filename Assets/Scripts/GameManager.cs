@@ -61,6 +61,13 @@ namespace Minesweeper
             }
 
             gridManager.ExploreCell(cellData.index, true, (_) => PlayClip(selectionClickedClip));
+
+            if (gridManager.IsClearedAllCells())
+            {
+                GameOver = true;
+                FindObjectOfType<WinUI>().ShowUI();
+                gridManager.BlastMines(-1, () => PlayClip(mineExplosionClip));
+            }
         }
 
         void IPointerMoveHandler.OnPointerMove(PointerEventData eventData)

@@ -23,9 +23,9 @@ namespace Minesweeper.GridSystems
     {
         public Vector2 AreaSize = new Vector2(15f, 20f);
         [Tooltip("Beginner: 9x9 grid with 10 mines, Intermediate: 16x16 grid with 40 mines, Expert: 16x30 grid with 99 mines")]
-        [SerializeField] Vector2Int cellCount;
-
-        [SerializeField] int mineCount;
+        public Vector2Int cellCount;
+        public int mineCount;
+        
         [SerializeField] float cellPadding;
         [SerializeField] GameObject cellPrefab;
         [SerializeField] Material[] mineClickedMaterials;
@@ -52,7 +52,7 @@ namespace Minesweeper.GridSystems
             {
                 ref var cellData = ref cellDatas[i];
                 var cell = Instantiate(cellPrefab, cellData.worldPos, Quaternion.identity, transform).GetComponent<Cell>();
-                cell.transform.localScale = cellData.cellSize.SetZ(cell.transform.localScale.z);
+                cell.transform.localScale = cellData.cellSize.SetZ(cell.transform.localScale.z) - Vector3.one * cellPadding;
                 cell.Initialize();
                 cellGameobjects[cellData.index] = cell;
                 this.cellDatas[cellData.index].index = cellData.index;
@@ -112,6 +112,10 @@ namespace Minesweeper.GridSystems
                     Debug.Log("Not placed");
                     continue;
                 }
+
+#if UNITY_EDITOR
+                cellGameobjects[index].GetComponent<Renderer>().material.color = Color.red;
+#endif
 
                 cellDatas[index].hasMine = true;
             }
@@ -231,6 +235,7 @@ namespace Minesweeper.GridSystems
         public void BlastMines(int cellDataIndex, Action onCellBlasted, Action onCompleted = null)
         {
             StopAllCoroutines();
+            cellDataIndex = cellDataIndex < 0 ? mineIndices[0] : cellDataIndex;
             StartCoroutine(BlastAll(cellDataIndex, onCellBlasted, onCompleted));
         }
 
@@ -249,6 +254,18 @@ namespace Minesweeper.GridSystems
             }
 
             onCompleted?.Invoke();
+        }
+
+        public bool IsClearedAllCells()
+        {
+            for (int i = 0; i < cellDatas.Length; i++)
+            {
+                ref var cellData = ref cellDatas[i];
+                if (cellData.hasMine) continue;
+                if (cellData.isRevealed == false) return false;
+            }
+
+            return true;
         }
     }
 }

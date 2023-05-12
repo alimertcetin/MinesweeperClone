@@ -240,15 +240,19 @@ namespace XIV.GridSystems
 
             return new GridXY(subGridCenter / validTotalCellCount, size, validSubGridCellCount);
         }
-
-        public static void DisplayGrid(GridXY grid, float duration = 0f)
+#if UNITY_EDITOR
+        
+        
+        public static void DisplayGrid(Vector3 gridCenter, Vector2 areaSize, Vector2Int cellCount, float duration = 0f)
         {
-            var cells = grid.GetCells();
+            var cells = GetCells(gridCenter, areaSize, cellCount);
             for (var i = 0; i < cells.Count; i++)
             {
                 ref CellData cellData = ref cells[i];
                 XIVDebug.DrawRectangle(cellData.worldPos, cellData.cellSize * 0.5f, duration);
             }
         }
+        
+#endif
     }
 }

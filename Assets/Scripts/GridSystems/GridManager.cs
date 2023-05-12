@@ -79,13 +79,7 @@ namespace Minesweeper.GridSystems
         void OnDrawGizmos()
         {
             if (drawGizmos == false) return;
-            
-            var cellDatas = GridXY.GetCells(transform.position, AreaSize, cellCount);
-            for (int i = 0; i < cellDatas.Count; i++)
-            {
-                ref var cellData = ref cellDatas[i];
-                XIVDebug.DrawRectangle(cellData.worldPos, cellData.cellSize * 0.5f);
-            }
+            GridXY.DisplayGrid(transform.position, AreaSize, cellCount);
         }
         
 #endif

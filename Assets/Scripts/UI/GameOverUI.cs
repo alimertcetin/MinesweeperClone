@@ -27,14 +27,14 @@ namespace Minesweeper.UI
         {
             uiGameObject.SetActive(true);
             uiGameObject.transform.XIVTween()
-                .Scale(Vector3.zero, Vector3.one, tweenDuration, EasingFunction.EaseInOutElastic)
+                .Scale(Vector3.zero, Vector3.one, tweenDuration, EasingFunction.EaseOutBounce)
                 .Start();
         }
 
         public void CloseUI(Action onClosed = null)
         {
             uiGameObject.transform.XIVTween()
-                .Scale(uiGameObject.transform.localScale, Vector3.zero, tweenDuration, EasingFunction.EaseInOutElastic)
+                .Scale(uiGameObject.transform.localScale, Vector3.zero, tweenDuration, EasingFunction.EaseOutBounce)
                 .OnComplete(() =>
                 {
                     uiGameObject.SetActive(false);
@@ -48,5 +48,4 @@ namespace Minesweeper.UI
             CloseUI(() => SceneManager.LoadScene(SceneManager.GetActiveScene().name));
         }
     }
-
 }

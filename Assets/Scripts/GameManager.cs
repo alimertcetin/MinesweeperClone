@@ -42,13 +42,19 @@ namespace Minesweeper
         void IPointerUpHandler.OnPointerUp(PointerEventData eventData)
         {
             if (GameOver) return;
-            
-            var worldPos = Camera.main.ScreenToWorldPoint(eventData.position);
 
-            gridManager.PlaceMinesIfNotPlaced(worldPos);
-            var cellData = gridManager.GetCellData(worldPos);
+            var worldPos = Camera.main.ScreenToWorldPoint(eventData.position);
             
-            if (cellData.isRevealed) return;
+            if (eventData.button == PointerEventData.InputButton.Right)
+            {
+                gridManager.PlaceFlag(worldPos);
+                return;
+            }
+
+            var cellData = gridManager.GetCellData(worldPos);
+            if (cellData.isRevealed || cellData.hasFlag) return;
+            
+            gridManager.PlaceMinesIfNotPlaced(worldPos);
 
             if (cellData.hasMine)
             {

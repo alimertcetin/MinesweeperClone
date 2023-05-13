@@ -2424,6 +2424,8 @@ MonoBehaviour:
   mineCount: 10
   cellPadding: 0
   cellPrefab: {fileID: 4088737926791748056, guid: 39c80f64c92e4f54cb637dbce2f327cf, type: 3}
+  defaultMaterial: {fileID: 2100000, guid: 69d48a823c24bed41ae0d8ef64a7549d, type: 2}
+  flagMaterial: {fileID: 2100000, guid: 6a94b3bf0191cf34f828fdfcbbda1ee7, type: 2}
   mineClickedMaterials:
   - {fileID: 2100000, guid: 7b73fcb7e6b18584fa7486d9e9617e9b, type: 2}
   - {fileID: 2100000, guid: ae764e15d929a7a48a1510209a454dad, type: 2}

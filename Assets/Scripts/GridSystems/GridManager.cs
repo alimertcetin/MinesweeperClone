@@ -17,6 +17,7 @@ namespace Minesweeper.GridSystems
         public bool isRevealed;
         public bool hasMine;
         public int mineNeigbourCount;
+        public bool hasFlag;
     }
 
     public class GridManager : MonoBehaviour, IGridListener
@@ -28,6 +29,8 @@ namespace Minesweeper.GridSystems
         
         [SerializeField] float cellPadding;
         [SerializeField] GameObject cellPrefab;
+        [SerializeField] Material defaultMaterial;
+        [SerializeField] Material flagMaterial;
         [SerializeField] Material[] mineClickedMaterials;
         [SerializeField] Material[] emptyFieldMaterials;
 
@@ -51,7 +54,7 @@ namespace Minesweeper.GridSystems
             for (int i = 0; i < count; i++)
             {
                 ref var cellData = ref cellDatas[i];
-                var cell = Instantiate(cellPrefab, cellData.worldPos, Quaternion.identity, transform).GetComponent<Cell>();
+                var cell = Instantiate(cellPrefab, cellData.worldPos, cellPrefab.transform.rotation, transform).GetComponent<Cell>();
                 cell.transform.localScale = cellData.cellSize.SetZ(cell.transform.localScale.z) - Vector3.one * cellPadding;
                 cell.Initialize();
                 cellGameobjects[cellData.index] = cell;
@@ -183,7 +186,9 @@ namespace Minesweeper.GridSystems
                 selectedIndex = index;
                 onCellExplored?.Invoke(cellDatas[cellIndex]);
             });
-            cellGameobjects[cellIndex].GetComponentInChildren<TMP_Text>().text = celldata.mineNeigbourCount.ToString();
+            var tmpText = cellGameobjects[cellIndex].GetComponentInChildren<TMP_Text>(true);
+            tmpText.text = celldata.mineNeigbourCount.ToString();
+            tmpText.gameObject.SetActive(true);
             
             if (celldata.mineNeigbourCount > 0 || exploreNeighbours == false) return;
             var neighboringIndices = new DynamicArray<int>(gridXY.GetNeighbourIndices(cellIndex));
@@ -266,6 +271,16 @@ namespace Minesweeper.GridSystems
             }
 
             return true;
+        }
+
+        public void PlaceFlag(Vector3 worldPos)
+        {
+            var index = gridXY.GetIndexByWorldPos(worldPos);
+            ref var cellData = ref cellDatas[index];
+            if (cellData.isRevealed) return;
+            
+            cellGameobjects[index].GetComponent<Renderer>().material = cellData.hasFlag ? defaultMaterial : flagMaterial;
+            cellData.hasFlag = !cellData.hasFlag;
         }
     }
 }
